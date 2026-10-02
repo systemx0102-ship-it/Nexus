@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="referrer" content="no-referrer">
+<!--CSP-->
+<meta name="nexus-token" content="{{TOKEN}}">
+<meta name="nexus-modo" content="servidor">
+<title>Nexus · Certificados de Bomberos</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235a9cff' stroke-width='2'%3E%3Cpath d='M12 3 4.5 6.2v5.3c0 4.6 3.1 7.9 7.5 9.5 4.4-1.6 7.5-4.9 7.5-9.5V6.2L12 3Z'/%3E%3Cpath d='M8.4 12.2 10.8 14.6 15.8 9.6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="shell">
+
+  <header class="top">
+    <div class="brand">
+      <div class="brandmark" aria-hidden="true" data-icon="shield"></div>
+      <div>
+        <div class="kicker">Control documental · Barranquilla</div>
+        <h1>Certificados de Bomberos</h1>
+      </div>
+    </div>
+    <div class="top-actions">
+      <div class="sync" id="sync" role="status" aria-live="polite">
+        <span class="sync-dot"></span><span id="syncText">Cargando…</span>
+      </div>
+      <button class="btn btn-primary only-server" id="btnUpdate" type="button" title="Traer certificados nuevos (U)">
+        <span data-icon="refresh"></span><span>Actualizar</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="portable-note only-portable" id="portableNote"></div>
+
+  <section class="progress only-server" id="progress" hidden aria-label="Progreso de la actualización">
+    <div class="progress-head">
+      <div>
+        <div class="progress-phase" id="pPhase">Preparando…</div>
+        <div class="progress-sub" id="pSub"></div>
+      </div>
+      <button class="btn btn-ghost" id="btnStop" type="button"><span data-icon="stop"></span><span>Detener</span></button>
+    </div>
+    <div class="bar"><div class="bar-fill" id="pBar"></div></div>
+    <div class="progress-stats">
+      <div><span class="ps-label">Consultados</span><span class="ps-value" id="pDone">0</span></div>
+      <div><span class="ps-label">Velocidad</span><span class="ps-value" id="pRate">0/s</span></div>
+      <div><span class="ps-label">Nuevos</span><span class="ps-value ps-good" id="pNew">0</span></div>
+      <div><span class="ps-label">Sin certificado</span><span class="ps-value" id="pEmpty">0</span></div>
+      <div><span class="ps-label">Errores</span><span class="ps-value" id="pErr">0</span></div>
+      <div><span class="ps-label">Conexiones</span><span class="ps-value" id="pConn">0</span></div>
+      <div><span class="ps-label">Tiempo restante</span><span class="ps-value" id="pEta">—</span></div>
+    </div>
+  </section>
+
+  <section class="kpis" id="kpis" aria-label="Resumen">
+    <button class="kpi" type="button" data-kpi="ok"><span class="kpi-label">Certificados</span><span class="kpi-value" id="kOk">—</span><span class="kpi-sub" id="kOkSub"></span></button>
+    <button class="kpi kpi-green" type="button" data-kpi="vigente"><span class="kpi-label">Vigentes</span><span class="kpi-value" id="kVig">—</span><span class="kpi-sub" id="kVigSub"></span></button>
+    <button class="kpi kpi-amber" type="button" data-kpi="porvencer"><span class="kpi-label">Por vencer</span><span class="kpi-value" id="kPv">—</span><span class="kpi-sub" id="kPvSub"></span></button>
+    <button class="kpi kpi-red" type="button" data-kpi="vencido"><span class="kpi-label">Vencidos</span><span class="kpi-value" id="kVen">—</span><span class="kpi-sub" id="kVenSub"></span></button>
+    <button class="kpi" type="button" data-kpi="ultimo"><span class="kpi-label">Último consecutivo</span><span class="kpi-value mono kpi-mono" id="kLast">—</span><span class="kpi-sub" id="kLastSub"></span></button>
+    <button class="kpi kpi-blue" type="button" data-kpi="nuevos"><span class="kpi-label">Nuevos hoy</span><span class="kpi-value" id="kNew">—</span><span class="kpi-sub" id="kNewSub"></span></button>
+  </section>
+
+  <section class="live only-server" aria-label="Consulta en vivo">
+    <form class="live-form" id="liveForm" autocomplete="off">
+      <div class="live-label"><span data-icon="bolt"></span>Consulta en vivo</div>
+      <input id="liveInput" class="input mono" inputmode="numeric" maxlength="24" spellcheck="false"
+             placeholder="62667  ó  00000062667-2026" aria-label="Consecutivo a consultar en vivo">
+      <button class="btn btn-secondary" id="liveBtn" type="submit"><span>Consultar</span><span class="kbd">Enter</span></button>
+    </form>
+    <div class="live-result" id="liveResult" hidden></div>
+  </section>
+
+  <main class="card">
+    <div class="toolbar">
+      <div class="searchbox">
+        <span data-icon="search"></span>
+        <input id="q" class="input" type="search" autocomplete="off" spellcheck="false"
+               placeholder="Buscar consecutivo, contribuyente, NIT/CC, dirección, referencia o fecha…  ( / )"
+               aria-label="Buscar certificados">
+      </div>
+      <div class="segment" role="group" aria-label="Estado" id="segEstado">
+        <button type="button" data-v="ok" class="active">Validados</button>
+        <button type="button" data-v="invalido">No válidos</button>
+        <button type="button" data-v="vacio">Sin certificado</button>
+        <button type="button" data-v="error">Errores</button>
+        <button type="button" data-v="all">Todos</button>
+      </div>
+      <div class="segment" role="group" aria-label="Vigencia" id="segVig">
+        <button type="button" data-v="all" class="active">Toda vigencia</button>
+        <button type="button" data-v="vigente">Vigentes</button>
+        <button type="button" data-v="porvencer">Por vencer</button>
+        <button type="button" data-v="vencido">Vencidos</button>
+      </div>
+    </div>
+
+    <div class="table-head">
+      <div class="result-summary" id="counter">—</div>
+      <div class="table-tools">
+        <button class="btn btn-ghost btn-sm" id="expCsv" type="button" title="Exportar lo filtrado a CSV"><span data-icon="download"></span><span>CSV</span></button>
+        <button class="btn btn-ghost btn-sm only-server" id="expXlsx" type="button" title="Exportar lo filtrado a Excel"><span data-icon="sheet"></span><span>Excel</span></button>
+        <button class="btn btn-ghost btn-sm only-server" id="expHtml" type="button" title="Generar un HTML para compartir (solo lectura)"><span data-icon="share"></span><span>HTML portable</span></button>
+        <label class="page-size">Filas
+          <select id="pageSize">
+            <option value="50">50</option><option value="100" selected>100</option><option value="250">250</option>
+            <option value="500">500</option><option value="all">Todas</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div class="tablewrap" id="tablewrap">
+      <table id="table">
+        <thead>
+          <tr>
+            <th class="num">#</th>
+            <th class="sortable" data-key="consecutivo">Consecutivo</th>
+            <th class="sortable" data-key="contribuyente">Contribuyente</th>
+            <th class="sortable" data-key="identificacion">Identificación</th>
+            <th class="sortable" data-key="direccion">Dirección</th>
+            <th class="sortable" data-key="ref_catastral">Ref. catastral</th>
+            <th class="sortable" data-key="fecha_acta">Fecha acta</th>
+            <th class="sortable" data-key="fecha_expedicion">Expedición</th>
+            <th class="sortable" data-key="fecha_expiracion">Expiración</th>
+            <th class="sortable" data-key="_estado">Estado</th>
+            <th class="open-head">Abrir</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div class="empty" id="empty" hidden><strong>Sin resultados</strong><span>No hay registros que coincidan con esta búsqueda o filtro.</span></div>
+    </div>
+
+    <div class="pagination">
+      <div class="page-info" id="pageInfo"></div>
+      <div class="page-controls">
+        <button class="btn btn-ghost btn-sm" id="prev" type="button">Anterior</button>
+        <div class="page-number" id="pageNumber"></div>
+        <button class="btn btn-ghost btn-sm" id="next" type="button">Siguiente</button>
+      </div>
+    </div>
+  </main>
+
+  <footer class="foot">
+    <span id="footText">Nexus</span>
+    <span class="foot-keys"><span class="kbd">/</span> buscar · <span class="kbd">Esc</span> cerrar · <span class="kbd">U</span> actualizar</span>
+  </footer>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" aria-hidden="true" aria-labelledby="dTitle" role="dialog">
+  <div class="drawer-head">
+    <div class="drawer-titles">
+      <button class="copy-code mono" id="dConsec" type="button" title="Copiar consecutivo"></button>
+      <h2 id="dTitle"></h2>
+      <div class="drawer-chips" id="dChips"></div>
+    </div>
+    <button class="icon-btn" id="dClose" type="button" aria-label="Cerrar"><span data-icon="close"></span></button>
+  </div>
+  <div class="drawer-actions">
+    <a class="btn btn-primary" id="dOpen" target="_blank" rel="noopener noreferrer"><span data-icon="external"></span><span>Ver en la Alcaldía</span></a>
+    <button class="btn btn-secondary only-server" id="dRefresh" type="button"><span data-icon="refresh"></span><span>Re-consultar</span></button>
+    <button class="btn btn-ghost" id="dCopy" type="button"><span data-icon="copy"></span><span>Copiar ficha</span></button>
+  </div>
+  <div class="drawer-body">
+    <section><h3>Datos del certificado</h3><dl class="fields" id="dMain"></dl></section>
+    <section><h3>Todos los campos de la página</h3><dl class="fields fields-all" id="dAll"></dl></section>
+    <section><h3>Registro</h3><dl class="fields" id="dLog"></dl></section>
+  </div>
+</aside>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

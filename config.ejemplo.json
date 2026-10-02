@@ -1,0 +1,12 @@
+{
+  "hilos": 24,
+  "hueco_fin": 30,
+  "auto_minutos": 30,
+  "actualizar_al_iniciar": true,
+  "dias_por_vencer": 30,
+  "inicio": 60624,
+  "anio_inicio": 2026,
+  "inicio_por_anio": {},
+  "puerto": 8765,
+  "verificar_ssl": true
+}

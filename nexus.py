@@ -24,7 +24,7 @@ import time
 if sys.version_info < (3, 8):
     sys.exit("Nexus necesita Python 3.8 o superior: https://www.python.org/downloads/")
 
-from nexus import __version__, exporter, legacy  # noqa: E402
+from nexus import __version__, anomalias, exporter, legacy  # noqa: E402
 from nexus.client import ClienteHTTP  # noqa: E402
 from nexus.config import DATA_DIR, LEGACY_HTML, Config, parse_consecutivo  # noqa: E402
 from nexus.parser import analizar  # noqa: E402
@@ -157,6 +157,26 @@ def cmd_exportar(cfg: Config, args) -> int:
     return 0
 
 
+def cmd_anomalias(cfg: Config, args) -> int:
+    alm = _almacen()
+    r = anomalias.detectar(alm.completos(), cfg)
+    if not r["total"]:
+        print("\n  Sin diferencias: no se encontró nada raro entre los certificados.\n")
+        return 0
+    print(f"\n  {_miles(r['total'])} diferencias encontradas en {_miles(r['afectados'])} certificados:\n")
+    for tipo, n in r["resumen"].items():
+        print(f"    {anomalias.ETIQUETAS.get(tipo, tipo):<28} {_miles(n)}")
+    print()
+    for h in r["hallazgos"][: args.limite]:
+        marca = {"alta": "●", "media": "○", "baja": "·"}.get(h["severidad"], "·") if UTF8 else "*"
+        print(f"  {marca} [{anomalias.ETIQUETAS.get(h['tipo'], h['tipo'])}] {h['titulo']}")
+        print(f"      {h['detalle']}")
+        print(f"      {', '.join(h['consecutivos'][:10])}{' …' if len(h['consecutivos']) > 10 else ''}\n")
+    if r["total"] > args.limite:
+        print(f"  … y {_miles(r['total'] - args.limite)} más. Usa --limite N o revísalas en el panel.\n")
+    return 0
+
+
 def cmd_importar(cfg: Config, args) -> int:
     alm = Almacen(os.path.join(DATA_DIR, "nexus.db"))
     regs = legacy.leer(args.archivo)
@@ -186,6 +206,8 @@ def main(argv=None) -> int:
     sub.add_parser("consultar", help="consultar un consecutivo").add_argument("consecutivo")
     sub.add_parser("muestra", help="diagnóstico del lector").add_argument("consecutivo")
     sub.add_parser("exportar", help="exportar a .xlsx/.csv/.html").add_argument("archivo")
+    pa = sub.add_parser("anomalias", help="buscar diferencias/anomalías en los datos")
+    pa.add_argument("--limite", type=int, default=40, help="máximo de hallazgos a mostrar")
     sub.add_parser("importar", help="importar Proyect.html").add_argument("archivo")
     args = ap.parse_args(argv)
 
@@ -201,7 +223,7 @@ def main(argv=None) -> int:
 
     comandos = {
         "actualizar": cmd_actualizar, "consultar": cmd_consultar, "muestra": cmd_muestra,
-        "exportar": cmd_exportar, "importar": cmd_importar, None: cmd_panel,
+        "exportar": cmd_exportar, "anomalias": cmd_anomalias, "importar": cmd_importar, None: cmd_panel,
     }
     try:
         return comandos[args.cmd](cfg, args)

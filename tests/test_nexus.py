@@ -23,6 +23,7 @@ sys.path.insert(0, RAIZ)
 from nexus import exporter, legacy  # noqa: E402
 from nexus.config import Config, parse_consecutivo  # noqa: E402
 from nexus.parser import analizar, fecha_iso  # noqa: E402
+from nexus import anomalias  # noqa: E402
 from nexus.scanner import Escaner, consultar_uno  # noqa: E402
 from nexus.store import Almacen  # noqa: E402
 
@@ -345,6 +346,15 @@ class PruebasServidor(unittest.TestCase):
         self.assertNotIn(b"<img src=x", html)  # datos embebidos escapados
         self.assertIn(b"Content-Security-Policy", html)
 
+    def test_anomalias_endpoint(self):
+        st, _, cuerpo = self.pedir("/api/anomalias")
+        self.assertEqual(st, 200)
+        datos = json.loads(cuerpo)
+        self.assertIn("hallazgos", datos)
+        self.assertIn("resumen", datos)
+        self.assertIn("etiquetas", datos)
+        self.assertEqual(self.pedir("/api/anomalias", token=False)[0], 403)
+
 
 class PruebasExportarImportar(unittest.TestCase):
     def test_csv_sin_formulas(self):
@@ -361,6 +371,47 @@ class PruebasExportarImportar(unittest.TestCase):
         self.assertEqual(regs[0]["consecutivo"], "00000060624-2026")
         self.assertEqual(regs[0]["contribuyente"], "VENTA DE FRIAS DONDE ANA")
         self.assertEqual(regs[0]["fecha_expiracion"], "2027-01-07")
+
+
+
+class PruebasAnomalias(unittest.TestCase):
+    def regs(self):
+        base = lambda n, **k: dict(
+            {"consecutivo": f"{n:011d}-2026", "numero": n, "anio": 2026, "estado": "ok",
+             "contribuyente": f"EMPRESA {n}", "identificacion": str(900000000 + n),
+             "direccion": f"CALLE {n}", "ref_catastral": f"REF{n}",
+             "fecha_acta": "2025-12-01", "fecha_expedicion": "2026-01-07", "fecha_expiracion": "2027-01-07"}, **k)
+        return [
+            base(1),
+            base(2, identificacion="900000001", contribuyente="OTRA EMPRESA"),      # mismo NIT que #1, otro nombre
+            base(3, identificacion="900000010", contribuyente="EMPRESA 10"),        # NIT repetido (mismo nombre/NIT que #10)
+            base(4, fecha_expedicion="2026-05-01", fecha_expiracion="2026-01-07"),  # expira antes de expedir
+            base(5, fecha_expiracion="2026-02-01"),                                 # vigencia corta (~25 días)
+            base(6, estado="error", contribuyente=None),                            # sin consultar
+            base(10, identificacion="900000010", contribuyente="EMPRESA 10"),       # par del #3
+        ]
+
+    def test_detecta_tipos(self):
+        r = anomalias.detectar(self.regs())
+        tipos = r["resumen"]
+        self.assertEqual(tipos.get("nit_distinto_nombre"), 1)
+        self.assertEqual(tipos.get("nit_repetido"), 1)
+        self.assertEqual(tipos.get("fechas_incoherentes"), 2)
+        self.assertEqual(tipos.get("sin_consultar"), 1)
+        # Mismo NIT con nombres distintos: ambos consecutivos y severidad alta
+        nit = next(h for h in r["hallazgos"] if h["tipo"] == "nit_distinto_nombre")
+        self.assertEqual(set(nit["consecutivos"]), {"00000000001-2026", "00000000002-2026"})
+        self.assertEqual(nit["severidad"], "alta")
+        rep = next(h for h in r["hallazgos"] if h["tipo"] == "nit_repetido")
+        self.assertEqual(set(rep["consecutivos"]), {"00000000003-2026", "00000000010-2026"})
+
+    def test_sin_anomalias(self):
+        limpio = [dict(consecutivo="00000000009-2026", numero=9, anio=2026, estado="ok",
+                       contribuyente="UNICA", identificacion="123", direccion="CALLE 9", ref_catastral="R9",
+                       fecha_acta="2025-12-01", fecha_expedicion="2026-01-07", fecha_expiracion="2027-01-07")]
+        r = anomalias.detectar(limpio)
+        self.assertEqual(r["total"], 0)
+        self.assertEqual(r["afectados"], 0)
 
 
 if __name__ == "__main__":

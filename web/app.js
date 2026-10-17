@@ -24,6 +24,7 @@
     bolt: ['M13 2 4 14h7l-1 8 9-12h-7l1-8Z'],
     copy: ['M9 9h11v11H9z', 'M5 15H4V4h11v1'],
     close: ['M6 6l12 12', 'M18 6 6 18'],
+    alert: ['M12 3 2 20h20L12 3Z', 'M12 10v4', 'M12 17.5v.5'],
   };
   function icon(name) {
     const svg = document.createElementNS(NS, 'svg');
@@ -413,6 +414,7 @@
     setItems(d.items);
     S.desde = d.meta.ahora;
     renderAll(false);
+    loadAnom();  // refresca el contador de diferencias en segundo plano
   }
   async function loadDelta() {
     const d = await api('/api/certificados?desde=' + encodeURIComponent(S.desde || ''));
@@ -535,6 +537,70 @@
     $('drawer').classList.remove('open');
     $('drawer').setAttribute('aria-hidden', 'true');
     $('scrim').hidden = true;
+  }
+
+  /* ---------- diferencias / anomalías ---------- */
+  const ANOM = { data: null, filtro: 'all', cargando: false };
+  function updateAnomBadge() {
+    const btn = $('btnAnom');
+    if (!btn) return;
+    const n = ANOM.data ? ANOM.data.total : 0;
+    const badge = $('anomBadge');
+    badge.textContent = num(n);
+    badge.hidden = !ANOM.data || n === 0;
+    const alta = ANOM.data && ANOM.data.hallazgos.some((x) => x.severidad === 'alta');
+    btn.dataset.sev = alta ? 'alta' : '';
+  }
+  async function loadAnom() {
+    if (PORTABLE) return;
+    ANOM.cargando = true;
+    try { ANOM.data = await api('/api/anomalias'); } catch { ANOM.data = null; }
+    ANOM.cargando = false;
+    updateAnomBadge();
+  }
+  function renderAnom() {
+    const d = ANOM.data;
+    const filtros = $('anomFilters');
+    const body = $('anomBody');
+    if (!d || !d.total) {
+      filtros.replaceChildren();
+      body.replaceChildren(h('div', { class: 'modal-empty' },
+        h('strong', null, 'Todo en orden'),
+        'No se encontró ninguna diferencia rara entre los certificados consultados.'));
+      $('anomSub').textContent = 'Nexus revisó tus datos y no encontró nada que no cuadre.';
+      return;
+    }
+    $('anomSub').textContent = `${num(d.total)} diferencias en ${num(d.afectados)} certificados. No consulta nada en línea: solo revisa tus datos.`;
+    const tipos = [['all', 'Todas', d.total], ...Object.entries(d.resumen).map(([t, n]) => [t, d.etiquetas[t] || t, n])];
+    filtros.replaceChildren(...tipos.map(([v, label, n]) =>
+      h('button', {
+        type: 'button', class: ANOM.filtro === v ? 'active' : null, dataset: { v },
+        onclick: () => { ANOM.filtro = v; renderAnom(); },
+      }, label, h('span', { class: 'n' }, num(n)))));
+    const lista = d.hallazgos.filter((x) => ANOM.filtro === 'all' || x.tipo === ANOM.filtro);
+    body.replaceChildren(...lista.map((x) =>
+      h('div', { class: `finding sev-${x.severidad}` },
+        h('div', { class: 'finding-top' },
+          h('span', { class: 'finding-tipo' }, d.etiquetas[x.tipo] || x.tipo),
+          h('span', { class: 'finding-tipo' }, `${x.consecutivos.length} cert.`)),
+        h('div', { class: 'finding-title' }, x.titulo),
+        h('div', { class: 'finding-detail' }, x.detalle),
+        h('div', { class: 'finding-consecs' }, x.consecutivos.slice(0, 30).map((c) =>
+          h('button', { type: 'button', onclick: () => { closeAnom(); openDrawer(c); } }, c))))));
+  }
+  async function openAnom() {
+    $('anom').classList.add('open');
+    $('anom').setAttribute('aria-hidden', 'false');
+    $('anomScrim').hidden = false;
+    $('anomClose').focus({ preventScroll: true });
+    $('anomBody').replaceChildren(h('div', { class: 'modal-empty' }, 'Analizando…'));
+    await loadAnom();
+    renderAnom();
+  }
+  function closeAnom() {
+    $('anom').classList.remove('open');
+    $('anom').setAttribute('aria-hidden', 'true');
+    $('anomScrim').hidden = true;
   }
   function fichaTexto(it) {
     const lines = [`${it.contribuyente || ''}`, `Consecutivo: ${it.consecutivo}`];
@@ -687,11 +753,17 @@
   $('expCsv').addEventListener('click', exportCsv);
   $('expXlsx').addEventListener('click', (e) => exportServer('xlsx', e.currentTarget));
   $('expHtml').addEventListener('click', (e) => exportServer('html', e.currentTarget));
+  if ($('btnAnom')) {
+    $('btnAnom').addEventListener('click', openAnom);
+    $('anomClose').addEventListener('click', closeAnom);
+    $('anomScrim').addEventListener('click', closeAnom);
+  }
 
   document.addEventListener('keydown', (e) => {
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement && document.activeElement.tagName);
     if (e.key === 'Escape') {
-      if ($('drawer').classList.contains('open')) closeDrawer();
+      if ($('anom').classList.contains('open')) closeAnom();
+      else if ($('drawer').classList.contains('open')) closeDrawer();
       else if (document.activeElement === $('q') && $('q').value) { $('q').value = ''; S.q = ''; applyFilters(); }
       return;
     }

@@ -7,6 +7,7 @@ la página (`campos`), para no perder ningún dato.
 """
 from __future__ import annotations
 
+import functools
 import re
 import unicodedata
 from html.parser import HTMLParser
@@ -169,6 +170,7 @@ class _Lector(HTMLParser):
             self._tablas.pop()
 
 
+@functools.lru_cache(maxsize=8192)
 def _campo_de(etiqueta: str) -> str | None:
     n = normalizar(etiqueta).strip(" :.-*#")
     if not n or len(n) > 60:
@@ -179,6 +181,7 @@ def _campo_de(etiqueta: str) -> str | None:
     return None
 
 
+@functools.lru_cache(maxsize=8192)
 def _es_etiqueta(texto: str) -> bool:
     t = texto.strip()
     if not t or len(t) > 70:

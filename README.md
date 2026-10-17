@@ -42,6 +42,7 @@ así que solo consulta los que faltan.
 | Buscar | Barra de búsqueda (tecla `/`): consecutivo, nombre, NIT/CC, dirección, referencia o fecha. No importan tildes ni mayúsculas. |
 | Filtrar | Validados / No válidos / Sin certificado / Errores, y Vigentes / Por vencer (≤30 días) / Vencidos. Las tarjetas de arriba también filtran. |
 | Ver todo el certificado | Clic en una fila: se abre la ficha con todos los campos, el enlace oficial y el botón **Re-consultar**. |
+| Revisar diferencias | Botón **Diferencias**: abre un panel con lo que no cuadra entre los certificados (ver abajo). |
 | Exportar | **CSV**, **Excel** (.xlsx con fechas reales y filtros) o **HTML portable** (un solo archivo para compartir, solo lectura). Exporta lo que esté filtrado. |
 
 ### Desde la consola
@@ -50,9 +51,26 @@ así que solo consulta los que faltan.
 python nexus.py actualizar                 # trae los nuevos y muestra una barra de progreso
 python nexus.py actualizar --hilos 48      # aún más rápido (máximo 64)
 python nexus.py consultar 62667            # consulta un consecutivo
+python nexus.py anomalias                  # lista las diferencias/anomalías
 python nexus.py exportar certificados.xlsx # también .csv o .html
 python nexus.py muestra 62667              # diagnóstico del lector (ver abajo)
 ```
+
+### Diferencias / anomalías
+
+El botón **Diferencias** (o `python nexus.py anomalias`) revisa tus datos — **sin consultar nada en
+línea** — y marca lo que no cuadra:
+
+- **NIT/CC con otro nombre:** un mismo documento aparece con contribuyentes distintos. Es lo más
+  importante de revisar (posible error de digitación o uso indebido).
+- **NIT/CC repetido:** un mismo documento aparece en varios certificados con el mismo nombre
+  (un negocio con varias sucursales, o certificados duplicados).
+- **Fechas incoherentes:** expiración anterior a la expedición, acta posterior a la expedición, o
+  vigencia muy distinta a un año.
+- **Sin consultar:** consecutivos que quedaron con error y conviene reintentar.
+
+> Nota: compartir dirección o referencia catastral **no** se marca como anomalía: en centros
+> comerciales y edificios es normal que muchos locales las compartan.
 
 ### Actualización diaria sin abrir nada (opcional)
 
@@ -124,4 +142,5 @@ python -m unittest discover -s tests -v
 ```
 
 Prueban el lector con varios diseños de página, el escaneo contra un servidor simulado
-(con huecos, errores 503 y cambio de año), la seguridad del panel y las exportaciones.
+(con huecos, errores 503 y cambio de año), el detector de diferencias, la seguridad del panel
+y las exportaciones.

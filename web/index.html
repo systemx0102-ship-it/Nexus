@@ -100,6 +100,7 @@
     <div class="table-head">
       <div class="result-summary" id="counter">—</div>
       <div class="table-tools">
+        <button class="btn btn-ghost btn-sm only-server" id="btnAnom" type="button" title="Buscar diferencias/anomalías en los datos"><span data-icon="alert"></span><span>Diferencias</span><span class="count-badge" id="anomBadge" hidden>0</span></button>
         <button class="btn btn-ghost btn-sm" id="expCsv" type="button" title="Exportar lo filtrado a CSV"><span data-icon="download"></span><span>CSV</span></button>
         <button class="btn btn-ghost btn-sm only-server" id="expXlsx" type="button" title="Exportar lo filtrado a Excel"><span data-icon="sheet"></span><span>Excel</span></button>
         <button class="btn btn-ghost btn-sm only-server" id="expHtml" type="button" title="Generar un HTML para compartir (solo lectura)"><span data-icon="share"></span><span>HTML portable</span></button>
@@ -149,6 +150,19 @@
     <span class="foot-keys"><span class="kbd">/</span> buscar · <span class="kbd">Esc</span> cerrar · <span class="kbd">U</span> actualizar</span>
   </footer>
 </div>
+
+<div class="scrim" id="anomScrim" hidden></div>
+<aside class="modal only-server" id="anom" aria-hidden="true" aria-labelledby="anomTitle" role="dialog">
+  <div class="modal-head">
+    <div>
+      <h2 id="anomTitle">Diferencias encontradas</h2>
+      <div class="modal-sub" id="anomSub">Cosas que no cuadran entre los certificados. No consulta nada en línea: solo revisa tus datos.</div>
+    </div>
+    <button class="icon-btn" id="anomClose" type="button" aria-label="Cerrar"><span data-icon="close"></span></button>
+  </div>
+  <div class="modal-filters" id="anomFilters"></div>
+  <div class="modal-body" id="anomBody"></div>
+</aside>
 
 <div class="scrim" id="scrim" hidden></div>
 <aside class="drawer" id="drawer" aria-hidden="true" aria-labelledby="dTitle" role="dialog">

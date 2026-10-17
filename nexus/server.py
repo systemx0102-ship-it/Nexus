@@ -21,7 +21,7 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
-from . import __version__, exporter
+from . import __version__, anomalias, exporter
 from .config import WEB_DIR, Config, parse_consecutivo
 from .scanner import Escaner, Progreso, consultar_uno
 from .store import Almacen, ahora
@@ -208,6 +208,10 @@ def _crear_manejador(app: Aplicacion):
                     return self._json(200, reg) if reg else self._error(404, "Aún no consultado")
                 if ruta == "/api/estado":
                     return self._json(200, {"progreso": app.progreso.a_dict(), "meta": app.meta()})
+                if ruta == "/api/anomalias":
+                    datos = anomalias.detectar(app.almacen.completos(), app.cfg)
+                    datos["etiquetas"] = anomalias.ETIQUETAS
+                    return self._json(200, datos)
             except ValueError as e:
                 return self._error(400, str(e))
             return self._error(404, "No encontrado")
